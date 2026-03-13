@@ -1,5 +1,5 @@
 # ssh -T git@github.com
-# streamlit run app.py --server.port 8080
+# python app.py
 # !pip install slack-bolt==1.18.1
 # !pip install tiktoken==0.5.2
 # !pip install langchain-community==0.0.30
