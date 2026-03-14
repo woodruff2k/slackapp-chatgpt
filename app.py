@@ -2,14 +2,15 @@
 # python app.py
 # !pip install slack-bolt==1.18.1
 # !pip install tiktoken==0.5.2
+# !pip install langchain==0.1.14
 # !pip install langchain-community==0.0.30
 # !pip install langchain-openai==0.0.8
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-# from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from momento import CacheClient, Configurations, CredentialProvider
 from langchain_community.chat_message_histories import MomentoChatMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+# from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
