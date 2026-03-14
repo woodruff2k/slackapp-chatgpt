@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from slack_bolt import App
 from typing import Any
 import logging
+import base64
 import json
 import time
 import os
@@ -161,18 +162,74 @@ app.event("app_mention")(ack=just_ack, lazy=[handle_mention])
 # 소켓 모드 핸들러를 사용해 앱을 시작
 if __name__ == "__main__":
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
-    
-    
+"""
+aws lambda add-permission \
+  --function-name LangChainBook-ChatGPTSlackFunction-dev-app \
+  --statement-id FunctionURLAllowInvokeFunction \
+  --action lambda:InvokeFunction \
+  --principal "*" \
+  --invoked-via-function-url
+"""
+"""
 def handler(event, context):
     logger.info("handler called")
-    header = event["headers"]
-    logger.info(json.dumps(header))
-    
-    if "x-slack-retry-num" in header:
+    headers = event["headers"]
+    logger.info(json.dumps(headers))
+
+    if "x-slack-retry-num" in headers:
         logger.info("SKIP > x-slack-retry-num: %s", header["x-slack-retry-num"])
         return 200
-        
+
     # AWS Lambda 환경의 요청 정보를 앱이 처리할 수 있도록 변환해 주는 어댑터
     slack_handler = SlackRequestHandler(app=app)
     # 응답을 그대로 AWS Lambda의 반환 값으로 반환할 수 있다.
     return slack_handler.handle(event, context)
+"""
+
+def handler(event, context):
+    logger.info("handler called")
+    logger.info("raw event=%s", json.dumps(event))
+
+    headers = event.get("headers") or {}
+    normalized_headers = {k.lower(): v for k, v in headers.items()}
+    logger.info("headers=%s", json.dumps(normalized_headers))
+
+    raw_body = event.get("body", "")
+    if event.get("isBase64Encoded") is True:
+        raw_body = base64.b64decode(raw_body).decode("utf-8")
+
+    logger.info("raw body=%s", raw_body)
+
+    data = {}
+    if raw_body:
+        try:
+            data = json.loads(raw_body)
+        except Exception as e:
+            logger.exception("body json parse failed: %s", e)
+
+    # 1) Slack URL verification은 직접 처리
+    if data.get("type") == "url_verification":
+        logger.info("url_verification received")
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"challenge": data["challenge"]}),
+        }
+
+    # 2) Slack retry 요청이면 바로 200
+    if "x-slack-retry-num" in normalized_headers:
+        logger.info(
+            "SKIP > x-slack-retry-num: %s",
+            normalized_headers["x-slack-retry-num"]
+        )
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "text/plain"},
+            "body": "ok",
+        }
+
+    # 3) 나머지는 Bolt로 전달
+    slack_handler = SlackRequestHandler(app=app)
+    response = slack_handler.handle(event, context)
+    logger.info("bolt response=%s", json.dumps(response))
+    return response

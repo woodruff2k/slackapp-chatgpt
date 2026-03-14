@@ -1,0 +1,36 @@
+service: LangChainBook-ChatGPTSlackFunction
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  region: ap-northeast-2
+  stage: dev
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource: "*"
+package:
+  patterns:
+    - "!.env"
+    - "!.git/**"
+    - "!.gitignore"
+    - "!.python-version"
+    - "!.serverless/**"
+    - "!.venv/**"
+    - "!node_modules/**"
+
+functions:
+  app:
+    name: LangChainBook-ChatGPTSlackFunction-${sls:stage}-app
+    handler: app.handler
+    runtime: python3.10
+    memorySize: 512
+    timeout: 900
+    url: true
+
+plugins:
+  - serverless-python-requirements
+  - serverless-dotenv-plugin
