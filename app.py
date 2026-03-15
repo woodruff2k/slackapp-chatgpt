@@ -164,23 +164,57 @@ app.event("app_mention")(ack=just_ack, lazy=[handle_mention])
 if __name__ == "__main__":
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
 """
-aws lambda add-permission \
-  --function-name LangChainBook-ChatGPTSlackFunction-dev-app \
-  --statement-id FunctionURLAllowInvokeFunction \
-  --action lambda:InvokeFunction \
-  --principal "*" \
-  --invoked-via-function-url
-"""
 def handler(event, context):
     logger.info("handler called")
     headers = event["headers"]
     logger.info(json.dumps(headers))
 
     if "x-slack-retry-num" in headers:
-        logger.info("SKIP > x-slack-retry-num: %s", header["x-slack-retry-num"])
+        logger.info("SKIP > x-slack-retry-num: %s", headers["x-slack-retry-num"])
         return 200
 
     # AWS Lambda 환경의 요청 정보를 앱이 처리할 수 있도록 변환해 주는 어댑터
     slack_handler = SlackRequestHandler(app=app)
     # 응답을 그대로 AWS Lambda의 반환 값으로 반환할 수 있다.
+    return slack_handler.handle(event, context)
+"""
+"""
+curl -i -X POST 'https://tm6qxt4l5gfl7cemtbb3yqr4za0jpbeu.lambda-url.ap-northeast-2.on.aws/' -H 'Content-Type: application/json' -d '{"type":"url_verification","challenge":"test_challenge"}' ; echo
+"""
+def handler(event, context):
+    logger.info("handler called")
+    logger.info(json.dumps(event))
+
+    headers = event.get("headers") or {}
+    headers = {k.lower(): v for k, v in headers.items()}
+
+    if "x-slack-retry-num" in headers:
+        logger.info("SKIP > x-slack-retry-num: %s", headers["x-slack-retry-num"])
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "text/plain"},
+            "body": ""
+        }
+
+    raw_body = event.get("body") or ""
+    if event.get("isBase64Encoded"):
+        import base64
+        raw_body = base64.b64decode(raw_body).decode("utf-8")
+
+    try:
+        body = json.loads(raw_body) if isinstance(raw_body, str) and raw_body else {}
+    except json.JSONDecodeError:
+        body = {}
+
+    # Slack URL verification은 직접 처리
+    if body.get("type") == "url_verification":
+        logger.info("url_verification received")
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"challenge": body.get("challenge")}),
+        }
+
+    # 실제 Slack 요청만 Bolt로 전달
+    slack_handler = SlackRequestHandler(app=app)
     return slack_handler.handle(event, context)

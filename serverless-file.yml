@@ -5,7 +5,6 @@ provider:
   name: aws
   region: ap-northeast-2
   stage: dev
-  architecture: x86_64
   iam:
     role:
       statements:
@@ -13,20 +12,25 @@ provider:
           Action:
             - lambda:InvokeFunction
           Resource: "*"
-  ecr:
-    images:
-      appimage:
-        path: ./
-        platform: linux/amd64
+package:
+  patterns:
+    - "!.env"
+    - "!.git/**"
+    - "!.gitignore"
+    - "!.python-version"
+    - "!.serverless/**"
+    - "!.venv/**"
+    - "!node_modules/**"
 
 functions:
   app:
     name: LangChainBook-ChatGPTSlackFunction-${sls:stage}-app
-    image:
-      name: appimage
+    handler: app.handler
+    runtime: python3.10
     memorySize: 512
     timeout: 900
     url: true
 
 plugins:
+  - serverless-python-requirements
   - serverless-dotenv-plugin
