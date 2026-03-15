@@ -7,6 +7,7 @@
 # !pip install langchain==0.1.14
 # !pip install langchain-openai==0.0.8
 # !pip install pinecone-client
+# !pip install pypdf pdf2image pdfminer.six langchain-text-spliter
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from momento import CacheClient, Configurations, CredentialProvider
@@ -199,7 +200,6 @@ def handler(event, context):
 
     raw_body = event.get("body") or ""
     if event.get("isBase64Encoded"):
-        import base64
         raw_body = base64.b64decode(raw_body).decode("utf-8")
 
     try:
