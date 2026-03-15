@@ -3,9 +3,10 @@
 # !pip install slack-bolt==1.18.1
 # !pip install boto3
 # !pip install momento
-# !pip install tiktoken==0.5.2
+# !pip install tiktoken==0.5.2 -> 0.6.0
 # !pip install langchain==0.1.14
 # !pip install langchain-openai==0.0.8
+# !pip install pinecone-client
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from momento import CacheClient, Configurations, CredentialProvider
