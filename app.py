@@ -6,8 +6,8 @@
 # !pip install tiktoken==0.6.0
 # !pip install langchain==0.1.14
 # !pip install langchain-openai==0.0.8
-# !pip install pinecone-client
-# !pip install pypdf pdf2image pdfminer.six langchain-text-spliter
+# !pip install pinecone-client==3.2.2
+# # !pip install pypdf pdf2image pdfminer.six langchain-text-spliter
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from momento import CacheClient, Configurations, CredentialProvider
