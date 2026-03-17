@@ -8,6 +8,10 @@
 # !pip install langchain-openai==0.0.8
 # !pip install pinecone-client==3.2.2
 # # !pip install pypdf pdf2image pdfminer.six langchain-text-spliter
+from langchain.chains import create_history_aware_retriever
+from langchain_core.runnables import RunnablePassthrough
+from add_document import initialize_vectorstore
+from langchain.chains import RetrievalQA
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from momento import CacheClient, Configurations, CredentialProvider
@@ -84,6 +88,10 @@ class SlackStreamingCallbackHandler(BaseCallbackHandler):
         )
 
 
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
 # @app.event("app_mention")
 def handle_mention(event, say):
     # user = event["user"]
@@ -112,12 +120,7 @@ def handle_mention(event, say):
     
     result = say(text="\n\nTyping...", thread_ts=thread_ts)
     ts = result["ts"]
-    
-    cache_client = CacheClient(
-        configuration=Configurations.Laptop.v1(),
-        credential_provider=CredentialProvider.from_environment_variables_v2("MOMENTO_AUTH_TOKEN", "MOMENTO_ENDPOINT"),
-        default_ttl=timedelta(hours=int(os.environ["MOMENTO_TTL"]))
-    )
+
     """
     history = MomentoChatMessageHistory.from_client_params(
         session_id=id_ts, 
@@ -126,6 +129,11 @@ def handle_mention(event, say):
         ttl=timedelta(hours=int(os.environ["MOMENTO_TTL"]))
     )
     """
+    cache_client = CacheClient(
+        configuration=Configurations.Laptop.v1(),
+        credential_provider=CredentialProvider.from_environment_variables_v2("MOMENTO_AUTH_TOKEN", "MOMENTO_ENDPOINT"),
+        default_ttl=timedelta(hours=int(os.environ["MOMENTO_TTL"]))
+    )
     history = MomentoChatMessageHistory(
         session_id=id_ts,
         cache_client=cache_client,
@@ -133,6 +141,10 @@ def handle_mention(event, say):
         ttl=timedelta(hours=int(os.environ["MOMENTO_TTL"]))
     )
     
+    vectorstore = initialize_vectorstore()
+    retriever = vectorstore.as_retriever()
+    
+    """
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", "You are a good assistant."),
@@ -140,20 +152,68 @@ def handle_mention(event, say):
             ("user", "{input}")
         ]
     )
+    """
+    # LangChain의 create_history_aware_retriever를 사용하여,
+    # 과거의 대화 기록을 고려하여 질문을 다시 표현하는 Chain을 생성
+    rephrase_prompt = ChatPromptTemplate.from_messages(
+        [
+            (MessagesPlaceholder(variable_name="chat_history")),
+            ("user", "{input}"),
+            ("user", "위의 대화에서, 대화와 관련된 정보를 찾기 위한 검색 쿼리를 생성해주세요.")
+        ]
+    )
+    rephrase_llm = ChatOpenAI(
+        model_name=os.environ["OPENAI_API_MODEL"],
+        temperature=os.environ["OPENAI_API_TEMPERATURE"]
+    )
+    rephrase_chain = create_history_aware_retriever(
+        rephrase_llm, retriever, rephrase_prompt
+    )
     
     callback = SlackStreamingCallbackHandler(channel=channel, ts=ts)
+
+    # 문맥을 고려하여 질문에 답하는 Chain을 생성
+    qa_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "아래의 문맥만을 고려하여 질문에 답하세요.\n\n{context}"),
+            (MessagesPlaceholder(variable_name="chat_history")),
+            ("user", "{input}")
+        ]
+    )
+    """
     llm = ChatOpenAI(
         model_name=os.environ["OPENAI_API_MODEL"],
         temperature=os.environ["OPENAI_API_TEMPERATURE"],
         streaming=True,
         callbacks=[callback]
     )
+    """
+    qa_llm = ChatOpenAI(
+        model_name=os.environ["OPENAI_API_MODEL"],
+        temperature=os.environ["OPENAI_API_TEMPERATURE"],
+        streaming=True,
+        callbacks=[callback]
+    )
     # llm.invoke(message)
+    """
     chain = prompt | llm | StrOutputParser()
     ai_message = chain.invoke({"input": message, "chat_history": history.messages})
+    """
+    """
+    qa_chain = RetrievalQA.from_llm(llm=llm, retriever=vectorstore.as_retriever())
+    qa_chain.invoke(message)
+    """
+    qa_chain = qa_prompt | qa_llm | StrOutputParser()
+    # 두 Chain을 연결한 Chain을 생성
+    conversational_retrieval_chain = RunnablePassthrough.assign(context=rephrase_chain | format_docs) | qa_chain
+    # Chain을 실행
+    ai_message = conversational_retrieval_chain.invoke({"input": message, "chat_history": history.messages})
+
+    # 대화 기록을 저장
     history.add_user_message(message)
     history.add_ai_message(ai_message)
     
+
     
 def just_ack(ack):
     ack()
