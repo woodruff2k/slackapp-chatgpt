@@ -4,3 +4,7 @@ langchain-openai==0.0.8
 momento==1.28.1
 slack-bolt==1.18.1
 python-dotenv==1.2.1
+pinecone-client==3.2.2
+pypdf==6.9.0
+pdf2image==1.17.0
+pdfminer.six==20260107
