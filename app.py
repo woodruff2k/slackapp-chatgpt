@@ -48,7 +48,31 @@ logger = logging.getLogger(__name__)
 
 
 # 봇 토큰과 소켓 모드 핸들러를 사용하여 앱을 초기화
-# app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
+# 
+# --- Secrets Manager에서 시크릿 로드 (보안 정책상 Lambda 평문 환경변수 사용 금지) ---
+import boto3
+
+def _load_secrets_from_secretsmanager():
+    secret_id = os.environ.get("SECRETS_MANAGER_ID", "prod/nol-tip/env")
+    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "ap-northeast-2"
+    try:
+        client = boto3.client("secretsmanager", region_name=region)
+        secret_string = client.get_secret_value(SecretId=secret_id)["SecretString"]
+        data = json.loads(secret_string)
+        loaded = 0
+        for key, value in data.items():
+            if not os.environ.get(key):
+                os.environ[key] = str(value)
+                loaded += 1
+        logger.info("Loaded %d secrets from Secrets Manager (%s)", loaded, secret_id)
+    except Exception as exc:
+        logger.error("Failed to load secrets from Secrets Manager (%s): %s", secret_id, exc)
+
+
+_load_secrets_from_secretsmanager()
+
+
+app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 app = App(
     signing_secret=os.environ["SLACK_SIGNING_SECRET"],
     token=os.environ["SLACK_BOT_TOKEN"],

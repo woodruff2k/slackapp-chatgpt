@@ -2,7 +2,7 @@ __pycache__/
 .serverless/
 .venv/
 .venv
-.env
 .DS_Store
 node_modules
 *.pdf
+*.bak

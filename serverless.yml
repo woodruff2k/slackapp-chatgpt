@@ -13,6 +13,10 @@ provider:
           Action:
             - lambda:InvokeFunction
           Resource: "*"
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource: "arn:aws:secretsmanager:ap-northeast-2:004221125864:secret:prod/nol-tip/env-*"
   ecr:
     images:
       appimage:

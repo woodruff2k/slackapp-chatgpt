@@ -20,3 +20,11 @@ aws configure list
 # 6. Serverless deploy 실행
 echo "=== DEPLOY START ==="
 npx serverless@3 deploy
+
+docker system prune -a --volumes -f
+docker builder prune -a -f
+rm -rf .serverless
+rm -rf ~/.cache/pip
+rm -rf ~/.npm
+find ~ -type d -name "__pycache__" -prune -exec rm -rf {} +
+df -h
